@@ -650,11 +650,189 @@
         .tab-note.string-a { border-top: 3px solid #ffe66d; }
         .tab-note.string-e { border-top: 3px solid #95e1d3; }
         .tab-note.string-b { border-top: 3px solid #f38181; }
+        
+        /* MIDI File List Section */
+        .midi-library {
+            background: rgba(22, 27, 34, 0.8);
+            border: 1px solid #30363d;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+        
+        .library-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #30363d;
+        }
+        
+        .library-header h2 {
+            color: #58a6ff;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .refresh-btn {
+            background: rgba(88, 166, 255, 0.1);
+            border: 1px solid #58a6ff;
+            color: #58a6ff;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .refresh-btn:hover {
+            background: rgba(88, 166, 255, 0.2);
+            transform: translateY(-1px);
+        }
+        
+        .file-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+        }
+        
+        .file-card {
+            background: rgba(13, 17, 23, 0.6);
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 18px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .file-card:hover {
+            border-color: #58a6ff;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(88, 166, 255, 0.15);
+        }
+        
+        .file-card::before {
+            content: '🎵';
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            font-size: 1.5em;
+            opacity: 0.3;
+        }
+        
+        .file-card.loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        
+        .file-card.loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 24px;
+            height: 24px;
+            margin: -12px 0 0 -12px;
+            border: 2px solid rgba(88, 166, 255, 0.2);
+            border-top: 2px solid #58a6ff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        .file-name {
+            color: #c9d1d9;
+            font-weight: 500;
+            font-size: 0.95em;
+            margin-bottom: 8px;
+            line-height: 1.4;
+            padding-right: 30px;
+        }
+        
+        .file-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #8b949e;
+            font-size: 0.8em;
+        }
+        
+        .file-size {
+            background: rgba(88, 166, 255, 0.1);
+            color: #58a6ff;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-weight: 500;
+        }
+        
+        .load-hint {
+            color: #238636;
+            font-weight: 500;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+        }
+        
+        .file-card:hover .load-hint {
+            opacity: 1;
+        }
+        
+        .library-empty {
+            text-align: center;
+            padding: 40px;
+            color: #8b949e;
+        }
+        
+        .library-empty-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+        
+        .library-error {
+            background: rgba(248, 81, 73, 0.1);
+            border: 1px solid rgba(248, 81, 73, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            color: #f85149;
+            text-align: center;
+        }
+        
+        .library-loading {
+            text-align: center;
+            padding: 40px;
+            color: #8b949e;
+        }
+        
+        .library-loading .spinner-small {
+            border: 3px solid rgba(88, 166, 255, 0.1);
+            border-top: 3px solid #58a6ff;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🎸 MIDI to 5-String Bass TAB</h1>
+        
+        <!-- MIDI Library Section -->
+        <div class="midi-library" id="midiLibrary" style="display: none;">
+            <div class="library-header">
+                <h2>🎵 Available MIDI Files</h2>
+                <button class="refresh-btn" id="refreshBtn">🔄 Refresh</button>
+            </div>
+            <div class="file-grid" id="fileGrid"></div>
+        </div>
         
         <div class="upload-section" id="uploadSection">
             <h2 style="margin-bottom: 20px; color: #c9d1d9;">Upload MIDI File</h2>
@@ -1655,6 +1833,116 @@
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         }
+
+        // ==================== MIDI LIBRARY ====================
+        
+        const libraryElements = {
+            midiLibrary: document.getElementById('midiLibrary'),
+            fileGrid: document.getElementById('fileGrid'),
+            refreshBtn: document.getElementById('refreshBtn')
+        };
+
+        // Load and display MIDI library
+        async function loadMidiLibrary() {
+            libraryElements.fileGrid.innerHTML = '<div class="library-loading"><div class="spinner-small"></div><p>Loading files...</p></div>';
+            libraryElements.midiLibrary.style.display = 'block';
+            
+            try {
+                const response = await fetch('./midi-files.json');
+                if (!response.ok) {
+                    throw new Error('Could not load midi-files.json');
+                }
+                
+                const data = await response.json();
+                
+                if (data.files && data.files.length > 0) {
+                    renderFileGrid(data.files);
+                } else {
+                    renderEmptyLibrary();
+                }
+            } catch (error) {
+                console.error('Error loading MIDI library:', error);
+                libraryElements.fileGrid.innerHTML = `
+                    <div class="library-empty">
+                        <div class="library-empty-icon">📁</div>
+                        <p>No MIDI files found</p>
+                        <p style="font-size: 0.85em; margin-top: 10px;">Add .mid files to the midi/ folder and run: <code>node scan-midi.js</code></p>
+                    </div>
+                `;
+            }
+        }
+
+        function renderFileGrid(files) {
+            libraryElements.fileGrid.innerHTML = '';
+            
+            files.forEach(file => {
+                const card = document.createElement('div');
+                card.className = 'file-card';
+                card.innerHTML = `
+                    <div class="file-name">${escapeHtml(file.displayName)}</div>
+                    <div class="file-meta">
+                        <span class="file-size">${file.size}</span>
+                        <span class="load-hint">Click to load →</span>
+                    </div>
+                `;
+                
+                card.addEventListener('click', () => loadMidiFileFromLibrary(file.name, card));
+                libraryElements.fileGrid.appendChild(card);
+            });
+        }
+
+        function renderEmptyLibrary() {
+            libraryElements.fileGrid.innerHTML = `
+                <div class="library-empty">
+                    <div class="library-empty-icon">🎵</div>
+                    <p>No MIDI files in library</p>
+                    <p style="font-size: 0.85em; margin-top: 10px;">Add .mid files to the midi/ folder and run <code>node scan-midi.js</code></p>
+                </div>
+            `;
+        }
+
+        async function loadMidiFileFromLibrary(filename, cardElement) {
+            // Show loading state
+            cardElement.classList.add('loading');
+            
+            try {
+                const response = await fetch(`./midi/${filename}`);
+                if (!response.ok) {
+                    throw new Error(`Failed to load ${filename}`);
+                }
+                
+                const arrayBuffer = await response.arrayBuffer();
+                const blob = new Blob([arrayBuffer], { type: 'audio/midi' });
+                const file = new File([blob], filename, { type: 'audio/midi' });
+                
+                await loadMIDIFile(file);
+                
+                // Scroll to results
+                elements.results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                
+            } catch (error) {
+                alert('Error loading file: ' + error.message);
+                console.error(error);
+            } finally {
+                cardElement.classList.remove('loading');
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Initialize library on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadMidiLibrary();
+        });
+
+        // Refresh button
+        libraryElements.refreshBtn.addEventListener('click', () => {
+            loadMidiLibrary();
+        });
     </script>
 </body>
 </html>
