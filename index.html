@@ -173,6 +173,7 @@
         let startTime = 0;
         let animFrame = null;
         let audioCtx = null;
+        let activeOscillators = [];
 
         function renderLibrary() {
             const grid = document.getElementById('fileGrid');
@@ -186,7 +187,6 @@
 
         async function loadMidiFile(name) {
             if (window.location.protocol === 'file:') {
-                // For file:// protocol, use file picker to bypass CORS
                 const picker = document.getElementById('localMidiPicker');
                 picker.onchange = async (e) => {
                     const file = e.target.files[0];
@@ -197,7 +197,6 @@
                 };
                 picker.click();
             } else {
-                // Web server mode
                 document.getElementById('loadingOverlay').style.display = 'flex';
                 try {
                     const res = await fetch(`midi/${name}`);
@@ -278,10 +277,55 @@
             return `${m}:${sec.toString().padStart(2, '0')}`;
         }
 
+        // Improved Bass Synth
+        function playBassNote(midiNote, time, duration, velocity) {
+            const freq = 440 * Math.pow(2, (midiNote - 69) / 12);
+            const now = audioCtx.currentTime + (time - playbackTime);
+            if (now < audioCtx.currentTime) return;
+
+            const osc1 = audioCtx.createOscillator();
+            const osc2 = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            const filter = audioCtx.createBiquadFilter();
+
+            osc1.type = 'sawtooth';
+            osc2.type = 'square';
+            osc1.frequency.value = freq;
+            osc2.frequency.value = freq;
+            osc2.detune.value = 5;
+
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(200, now);
+            filter.frequency.exponentialRampToValueAtTime(1000, now + 0.05);
+            filter.frequency.exponentialRampToValueAtTime(300, now + duration);
+
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(velocity * 0.4, now + 0.02);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + duration);
+
+            osc1.connect(filter);
+            osc2.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            osc1.start(now);
+            osc2.start(now);
+            osc1.stop(now + duration);
+            osc2.stop(now + duration);
+            
+            return { stop: () => { try{osc1.stop(); osc2.stop();}catch(e){} } };
+        }
+
+        function stopAudio() {
+            activeOscillators.forEach(o => o.stop());
+            activeOscillators = [];
+        }
+
         function playPlayback() {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             if (audioCtx.state === 'suspended') audioCtx.resume();
             
+            stopAudio();
             isPlaying = true;
             isPaused = false;
             startTime = audioCtx.currentTime - playbackTime;
@@ -289,12 +333,21 @@
             document.getElementById('playBtn').disabled = true;
             document.getElementById('pauseBtn').disabled = false;
             document.getElementById('positionMarker').style.display = 'block';
+
+            currentTrack.notes.forEach(note => {
+                if (note.time >= playbackTime) {
+                    const osc = playBassNote(note.midi, note.time, note.duration, note.velocity);
+                    if (osc) activeOscillators.push(osc);
+                }
+            });
+
             animate();
         }
 
         function pausePlayback() {
             isPlaying = false;
             isPaused = true;
+            stopAudio();
             cancelAnimationFrame(animFrame);
             document.getElementById('playBtn').disabled = false;
             document.getElementById('playBtn').innerText = '▶ Resume';
@@ -305,6 +358,7 @@
             isPlaying = false;
             isPaused = false;
             playbackTime = 0;
+            stopAudio();
             cancelAnimationFrame(animFrame);
             document.getElementById('progressFill').style.width = '0%';
             document.getElementById('positionMarker').style.left = '0px';
@@ -319,6 +373,31 @@
         document.getElementById('pauseBtn').onclick = pausePlayback;
         document.getElementById('stopBtn').onclick = stopPlayback;
 
+        document.getElementById('progressBar').onclick = (e) => {
+            if (!midiData) return;
+            const rect = e.currentTarget.getBoundingClientRect();
+            const percent = (e.clientX - rect.left) / rect.width;
+            seekTo(percent * midiData.duration);
+        };
+
+        function seekTo(time) {
+            const wasPlaying = isPlaying;
+            stopAudio();
+            playbackTime = Math.max(0, Math.min(time, midiData.duration));
+            
+            const progress = (playbackTime / midiData.duration) * 100;
+            document.getElementById('progressFill').style.width = progress + '%';
+            
+            const markerPos = playbackTime * CONFIG.pxPerSec;
+            document.getElementById('positionMarker').style.left = markerPos + 'px';
+            
+            const container = document.getElementById('tablatureContainer');
+            container.scrollLeft = markerPos - (container.clientWidth * 0.3);
+
+            if (wasPlaying) playPlayback();
+            else document.getElementById('infoTime').innerText = `${formatTime(playbackTime)} / ${formatTime(midiData.duration)}`;
+        }
+
         function animate() {
             if (!isPlaying) return;
             playbackTime = audioCtx.currentTime - startTime;
@@ -330,10 +409,11 @@
             const markerPos = playbackTime * CONFIG.pxPerSec;
             document.getElementById('positionMarker').style.left = markerPos + 'px';
             
-            // Auto-scroll logic
             const container = document.getElementById('tablatureContainer');
             const targetScroll = markerPos - (container.clientWidth * 0.3);
-            if (targetScroll > container.scrollLeft) container.scrollLeft = targetScroll;
+            if (targetScroll > container.scrollLeft || Math.abs(container.scrollLeft - targetScroll) > 100) {
+                 container.scrollLeft = targetScroll;
+            }
 
             document.querySelectorAll('.tab-note').forEach(n => {
                 const t = parseFloat(n.dataset.time);
