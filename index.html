@@ -8,134 +8,106 @@
     <script src="https://unpkg.com/tone"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, sans-serif; background: #0d1117; color: #c9d1d9; padding: 20px; line-height: 1.5; }
-        .container { max-width: 1000px; margin: 0 auto; }
-        h1 { text-align: center; color: #58a6ff; margin-bottom: 30px; font-size: 2em; }
-        
-        .alert { background: rgba(240, 136, 62, 0.1); border: 1px solid #f0883e; color: #f0883e; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: none; }
-        .alert code { background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 4px; color: #fff; }
-
-        .midi-library { background: #161b22; padding: 25px; border-radius: 12px; border: 1px solid #30363d; }
-        .library-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        
-        .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
-        .file-card { background: #0d1117; border: 1px solid #30363d; padding: 18px; border-radius: 10px; cursor: pointer; transition: 0.2s; position: relative; }
-        .file-card:hover { border-color: #58a6ff; transform: translateY(-2px); }
-        .file-card h3 { font-size: 14px; margin-bottom: 8px; color: #e6edf3; }
-        .file-card span { font-size: 12px; color: #8b949e; }
-        
-        .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 1000; }
-        .spinner { border: 4px solid rgba(88, 166, 255, 0.1); border-top: 4px solid #58a6ff; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        #debug-log { background: #000; color: #0f0; padding: 10px; border-radius: 5px; font-family: monospace; font-size: 11px; margin-top: 20px; max-height: 150px; overflow-y: auto; display: block; border: 1px solid #333; }
+        body { font-family: sans-serif; background: #0d1117; color: #c9d1d9; padding: 20px; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 { text-align: center; color: #58a6ff; margin-bottom: 20px; }
+        #debug { background: #000; color: #0f0; padding: 10px; border: 1px solid #58a6ff; font-family: monospace; margin-bottom: 20px; white-space: pre-wrap; }
+        .midi-library { background: #161b22; padding: 20px; border-radius: 8px; }
+        .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; margin-top: 15px; }
+        .file-card { background: #0d1117; border: 1px solid #30363d; padding: 15px; border-radius: 8px; cursor: pointer; }
+        .file-card:hover { border-color: #58a6ff; }
+        .results-section { display: none; margin-top: 20px; }
+        .tablature-container { background: #161b22; padding: 20px; overflow-x: auto; margin-top: 20px; }
+        .tab-note { color: #f0883e; }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🎸 MIDI to 5-String Bass TAB</h1>
         
-        <div id="protocolAlert" class="alert">
-            <strong>⚠️ Security Notice:</strong> You are viewing this via <code>file://</code>. Browsers block loading MIDI files directly from your disk for security. 
-            <br><br>
-            To use the library, please run a local server. Quickest way:
-            <br>1. Open terminal in this folder
-            <br>2. Run <code>python -m http.server</code>
-            <br>3. Visit <code>http://localhost:8000</code>
-        </div>
+        <div id="debug">System Check: Starting...</div>
 
         <div class="midi-library">
-            <div class="library-header">
-                <h2>Library Files</h2>
-                <div id="fileCount" style="color: #8b949e;">0 files found</div>
-            </div>
-            <div id="fileGrid" class="file-grid">
-                <!-- Inlined files will go here -->
-            </div>
+            <h2>Available MIDI Files</h2>
+            <div id="fileGrid" class="file-grid">Loading Files...</div>
         </div>
 
-        <div id="debug-log">Initialising system...</div>
-    </div>
-
-    <div id="loadingOverlay" class="loading-overlay">
-        <div style="text-align: center;">
-            <div class="spinner"></div>
-            <div style="margin-top: 15px; color: #58a6ff;">Reading MIDI Data...</div>
+        <div id="results" class="results-section">
+            <h2 id="currentFileName"></h2>
+            <div class="tablature-container" id="tabContent"></div>
         </div>
     </div>
 
     <script>
-        const INLINED_DATABASE = [
-            { "name": "Do i do Bass.mid", "displayName": "Do i do Bass", "size": "13.8 KB" },
-            { "name": "Lavender Haze  Taylor Swift Funk Cover  Strutman Lane [bass].mid", "displayName": "Lavender Haze Taylor Swift Funk Cover Strutman Lane", "size": "4.3 KB" },
-            { "name": "Maroon 5 - Wait (Chromeo Remix) (Audio) [bass].mid", "displayName": "Maroon 5 - Wait (Chromeo Remix) (Audio)", "size": "6.9 KB" },
-            { "name": "Obsessed.mid", "displayName": "Obsessed", "size": "7.4 KB" },
-            { "name": "Show Me How.mid", "displayName": "Show Me How", "size": "10.6 KB" },
-            { "name": "Up Top - Busty and the bass.mid", "displayName": "Up Top - Busty and the bass", "size": "17.7 KB" }
-        ];
-
-        function log(msg, error = false) {
-            const l = document.getElementById('debug-log');
-            const time = new Date().toLocaleTimeString();
-            l.innerHTML += `<div style="color: ${error ? '#ff5555' : '#00ff00'}">[${time}] ${msg}</div>`;
-            l.scrollTop = l.scrollHeight;
+        const debugEl = document.getElementById('debug');
+        function log(msg) {
+            console.log(msg);
+            debugEl.innerText += "\n> " + msg;
         }
 
-        function renderLibrary() {
-            log("Rendering library from inlined database...");
-            const grid = document.getElementById('fileGrid');
-            const count = document.getElementById('fileCount');
-            
-            grid.innerHTML = '';
-            count.innerText = `${INLINED_DATABASE.length} files available`;
+        window.onerror = (m, u, l) => log("GLOBAL ERROR: " + m + " at line " + l);
 
-            INLINED_DATABASE.forEach(file => {
-                const card = document.createElement('div');
-                card.className = 'file-card';
-                card.innerHTML = `
-                    <h3>${file.displayName}</h3>
-                    <span>Size: ${file.size}</span>
-                `;
-                card.onclick = () => loadMidiFile(file.name);
-                grid.appendChild(card);
-            });
-            log("Library render complete.");
-        }
+        log("Protocol: " + window.location.protocol);
 
-        async function loadMidiFile(filename) {
-            log(`Selection attempt: ${filename}`);
-            const overlay = document.getElementById('loadingOverlay');
-            overlay.style.display = 'flex';
-
+        async function loadLibrary() {
+            log("Attempting to fetch midi-files.json...");
             try {
-                const response = await fetch(`midi/${filename}`);
-                if (!response.ok) {
-                    throw new Error(`Browser blocked file access. (Status: ${response.status})`);
+                const response = await fetch('midi-files.json?t=' + Date.now());
+                log("Fetch status: " + response.status);
+                if (!response.ok) throw new Error("JSON not found");
+                
+                const data = await response.json();
+                log("JSON parsed. Files found: " + (data.files ? data.files.length : 0));
+                
+                const grid = document.getElementById('fileGrid');
+                grid.innerHTML = '';
+                
+                if (data.files && data.files.length > 0) {
+                    data.files.forEach(f => {
+                        const card = document.createElement('div');
+                        card.className = 'file-card';
+                        card.innerHTML = `<strong>${f.displayName}</strong><br><small>${f.size}</small>`;
+                        card.onclick = () => loadMidi(f.name);
+                        grid.appendChild(card);
+                    });
+                    log("Grid rendered.");
+                } else {
+                    grid.innerText = "No files found in JSON.";
                 }
+            } catch (e) {
+                log("Library Error: " + e.message);
+            }
+        }
+
+        async function loadMidi(filename) {
+            log("Loading MIDI: " + filename);
+            try {
+                const response = await fetch('midi/' + filename);
+                if (!response.ok) throw new Error("File not found");
                 const arrayBuffer = await response.arrayBuffer();
                 const midi = new Midi(arrayBuffer);
-                log(`Successfully loaded: ${midi.name || filename}`);
-                alert(`Successfully loaded ${midi.name || filename}. Player interface restoring in next update...`);
+                log("MIDI parsed: " + midi.name);
+                
+                document.getElementById('results').style.display = 'block';
+                document.getElementById('currentFileName').innerText = filename;
+                
+                // Simple display logic
+                const track = midi.tracks.find(t => t.notes.length > 0);
+                document.getElementById('tabContent').innerText = track 
+                    ? `Found track with ${track.notes.length} notes.` 
+                    : "No notes found in any track.";
+                
             } catch (e) {
-                log(`CRITICAL LOAD ERROR: ${e.message}`, true);
-                if (window.location.protocol === 'file:') {
-                    alert("SECURITY ERROR: Browser security prevents loading files from disk. \n\nPlease use a local server as described in the orange warning box.");
-                } else {
-                    alert("Error: " + e.message);
-                }
-            } finally {
-                overlay.style.display = 'none';
+                log("Load Error: " + e.message);
             }
         }
 
-        // Init
-        document.addEventListener('DOMContentLoaded', () => {
-            if (window.location.protocol === 'file:') {
-                document.getElementById('protocolAlert').style.display = 'block';
-                log("Local file protocol detected. Fetching binary data will be restricted.", true);
-            }
-            renderLibrary();
-        });
+        // Run
+        if (window.location.protocol === 'file:') {
+            log("WARNING: file:// detected. Fetch will likely fail.");
+        }
+        
+        loadLibrary();
     </script>
 </body>
 </html>
