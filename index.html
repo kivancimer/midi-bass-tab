@@ -53,8 +53,8 @@
         .string-labels { position: sticky; left: 0; z-index: 10; background: #0d1117; display: flex; flex-direction: column; min-width: 70px; padding: 0 20px; border-right: 1px solid #30363d; }
         .string-label { color: #58a6ff; font-weight: bold; height: 50px; display: flex; align-items: center; justify-content: center; font-size: 1.2em; text-shadow: 0 0 10px rgba(88, 166, 255, 0.5); }
         .tab-lines-area { position: relative; padding: 0 50px; }
-        .tab-string-line { height: 50px; position: relative; width: 100%; }
-        .tab-line-bg { position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: #484f58; z-index: 1; }
+        .tab-string-line { height: 50px; position: relative; min-width: 100%; }
+        .tab-line-bg { position: absolute; top: 50%; left: 0; min-width: 100%; height: 1px; background: #484f58; z-index: 1; }
         .tab-note {
             position: absolute;
             background: linear-gradient(135deg, #f0883e, #f85149);
@@ -153,7 +153,17 @@
     <input type="file" id="localMidiPicker" accept=".mid,.midi" style="display: none;">
 
     <script>
-        let midiFiles = [];
+        const FALLBACK_DATABASE = [
+            { "name": "american boy - disco.mid", "displayName": "american boy - disco", "size": "1.7 KB" },
+            { "name": "Do i do Bass.mid", "displayName": "Do i do Bass", "size": "13.8 KB" },
+            { "name": "Lavender Haze  Taylor Swift Funk Cover  Strutman Lane [bass].mid", "displayName": "Lavender Haze Taylor Swift Funk Cover Strutman Lane", "size": "4.3 KB" },
+            { "name": "Maroon 5 - Wait (Chromeo Remix) (Audio) [bass].mid", "displayName": "Maroon 5 - Wait (Chromeo Remix) (Audio)", "size": "6.9 KB" },
+            { "name": "Obsessed.mid", "displayName": "Obsessed", "size": "7.4 KB" },
+            { "name": "Show Me How.mid", "displayName": "Show Me How", "size": "10.6 KB" },
+            { "name": "Up Top - Busty and the bass.mid", "displayName": "Up Top - Busty and the bass", "size": "17.7 KB" }
+        ];
+
+        let midiFiles = [...FALLBACK_DATABASE];
 
         const CONFIG = {
             tuning5: [{n:'G', m:43}, {n:'D', m:38}, {n:'A', m:33}, {n:'E', m:28}, {n:'B', m:23}],
@@ -241,17 +251,21 @@
         function applyOptimization() {
             const is5 = document.getElementById('bassType').value === '5';
             const tuning = is5 ? CONFIG.tuning5 : CONFIG.tuning4;
+            const songWidth = (midiData.duration * CONFIG.pxPerSec) + 1000;
             
             document.getElementById('stringLabels').innerHTML = tuning.map(s => `<div class="string-label">${s.n}</div>`).join('');
             
             const area = document.getElementById('tabLinesArea');
+            area.style.width = songWidth + 'px';
             area.innerHTML = '<div id="positionMarker" class="position-marker"></div>';
             
             const lines = tuning.map(() => {
                 const container = document.createElement('div');
                 container.className = 'tab-string-line';
+                container.style.width = songWidth + 'px';
                 const lineBg = document.createElement('div');
                 lineBg.className = 'tab-line-bg';
+                lineBg.style.width = songWidth + 'px';
                 container.appendChild(lineBg);
                 area.appendChild(container);
                 return container;
@@ -436,14 +450,17 @@
             if (window.location.protocol === 'file:') {
                 document.getElementById('protocolAlert').style.display = 'block';
             } else {
+                // Server mode: Try to get latest list, but keep fallback if fetch fails
                 try {
                     const res = await fetch('midi-files.json?t=' + Date.now());
                     if (res.ok) {
                         const data = await res.json();
-                        if (data && data.files) midiFiles = data.files;
+                        if (data && data.files && data.files.length > 0) {
+                            midiFiles = data.files;
+                        }
                     }
                 } catch(e) {
-                    console.error("Library fetch failed", e);
+                    console.warn("Could not fetch latest library, using inlined fallback.");
                 }
             }
             renderLibrary();
