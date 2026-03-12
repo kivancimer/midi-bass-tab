@@ -53,20 +53,23 @@
         .string-labels { position: sticky; left: 0; z-index: 10; background: #0d1117; display: flex; flex-direction: column; min-width: 70px; padding: 0 20px; border-right: 1px solid #30363d; }
         .string-label { color: #58a6ff; font-weight: bold; height: 50px; display: flex; align-items: center; justify-content: center; font-size: 1.2em; text-shadow: 0 0 10px rgba(88, 166, 255, 0.5); }
         .tab-lines-area { position: relative; padding: 0 50px; }
-        .tab-string-line { height: 50px; border-bottom: 1px solid #484f58; position: relative; display: flex; align-items: center; width: 100%; }
+        .tab-string-line { height: 50px; position: relative; width: 100%; }
+        .tab-line-bg { position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: #484f58; z-index: 1; }
         .tab-note {
             position: absolute;
             background: linear-gradient(135deg, #f0883e, #f85149);
             color: white;
-            padding: 4px 10px;
-            border-radius: 6px;
+            padding: 2px 8px;
+            border-radius: 4px;
             font-weight: bold;
-            transform: translateY(-50%) translateX(-50%);
+            transform: translate(-50%, -50%);
             top: 50%;
             cursor: pointer;
             z-index: 5;
             box-shadow: 0 3px 10px rgba(248, 81, 73, 0.4);
             transition: all 0.2s ease;
+            min-width: 25px;
+            text-align: center;
         }
         .tab-note.active { background: linear-gradient(135deg, #238636, #2ea043); box-shadow: 0 0 20px #238636; transform: translateY(-50%) translateX(-50%) scale(1.15); z-index: 7; }
         .position-marker { position: absolute; top: 0; bottom: 0; width: 3px; background: linear-gradient(180deg, #58a6ff, #1f6feb); z-index: 8; display: none; box-shadow: 0 0 15px rgba(88, 166, 255, 0.8); }
@@ -150,15 +153,7 @@
     <input type="file" id="localMidiPicker" accept=".mid,.midi" style="display: none;">
 
     <script>
-        let INLINED_DATABASE = [
-            { "name": "american boy - disco.mid", "displayName": "american boy - disco", "size": "1.7 KB" },
-            { "name": "Do i do Bass.mid", "displayName": "Do i do Bass", "size": "13.8 KB" },
-            { "name": "Lavender Haze  Taylor Swift Funk Cover  Strutman Lane [bass].mid", "displayName": "Lavender Haze Taylor Swift Funk Cover Strutman Lane", "size": "4.3 KB" },
-            { "name": "Maroon 5 - Wait (Chromeo Remix) (Audio) [bass].mid", "displayName": "Maroon 5 - Wait (Chromeo Remix) (Audio)", "size": "6.9 KB" },
-            { "name": "Obsessed.mid", "displayName": "Obsessed", "size": "7.4 KB" },
-            { "name": "Show Me How.mid", "displayName": "Show Me How", "size": "10.6 KB" },
-            { "name": "Up Top - Busty and the bass.mid", "displayName": "Up Top - Busty and the bass", "size": "17.7 KB" }
-        ];
+        let midiFiles = [];
 
         const CONFIG = {
             tuning5: [{n:'G', m:43}, {n:'D', m:38}, {n:'A', m:33}, {n:'E', m:28}, {n:'B', m:23}],
@@ -178,7 +173,15 @@
 
         function renderLibrary() {
             const grid = document.getElementById('fileGrid');
-            grid.innerHTML = INLINED_DATABASE.map(f => `
+            if (midiFiles.length === 0) {
+                grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #8b949e;">
+                    <p>No MIDI files loaded.</p>
+                    <button class="control-btn" style="margin-top: 20px;" onclick="document.getElementById('localMidiPicker').click()">📁 Upload MIDI Manually</button>
+                    <p style="margin-top: 10px; font-size: 0.8em;">(Required when using file:// protocol)</p>
+                </div>`;
+                return;
+            }
+            grid.innerHTML = midiFiles.map(f => `
                 <div class="file-card" onclick="loadMidiFile('${f.name}')">
                     <h3>${f.displayName}</h3>
                     <span>${f.size}</span>
@@ -245,10 +248,13 @@
             area.innerHTML = '<div id="positionMarker" class="position-marker"></div>';
             
             const lines = tuning.map(() => {
-                const line = document.createElement('div');
-                line.className = 'tab-string-line';
-                area.appendChild(line);
-                return line;
+                const container = document.createElement('div');
+                container.className = 'tab-string-line';
+                const lineBg = document.createElement('div');
+                lineBg.className = 'tab-line-bg';
+                container.appendChild(lineBg);
+                area.appendChild(container);
+                return container;
             });
 
             currentTrack.notes.forEach(note => {
@@ -432,9 +438,13 @@
             } else {
                 try {
                     const res = await fetch('midi-files.json?t=' + Date.now());
-                    const data = await res.json();
-                    if (data && data.files) INLINED_DATABASE = data.files;
-                } catch(e) {}
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data && data.files) midiFiles = data.files;
+                    }
+                } catch(e) {
+                    console.error("Library fetch failed", e);
+                }
             }
             renderLibrary();
         });
