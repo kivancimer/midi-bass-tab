@@ -150,7 +150,8 @@
     <input type="file" id="localMidiPicker" accept=".mid,.midi" style="display: none;">
 
     <script>
-        const INLINED_DATABASE = [
+        let INLINED_DATABASE = [
+            { "name": "american boy - disco.mid", "displayName": "american boy - disco", "size": "1.7 KB" },
             { "name": "Do i do Bass.mid", "displayName": "Do i do Bass", "size": "13.8 KB" },
             { "name": "Lavender Haze  Taylor Swift Funk Cover  Strutman Lane [bass].mid", "displayName": "Lavender Haze Taylor Swift Funk Cover Strutman Lane", "size": "4.3 KB" },
             { "name": "Maroon 5 - Wait (Chromeo Remix) (Audio) [bass].mid", "displayName": "Maroon 5 - Wait (Chromeo Remix) (Audio)", "size": "6.9 KB" },
@@ -425,8 +426,16 @@
             else stopPlayback();
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            if (window.location.protocol === 'file:') document.getElementById('protocolAlert').style.display = 'block';
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (window.location.protocol === 'file:') {
+                document.getElementById('protocolAlert').style.display = 'block';
+            } else {
+                try {
+                    const res = await fetch('midi-files.json?t=' + Date.now());
+                    const data = await res.json();
+                    if (data && data.files) INLINED_DATABASE = data.files;
+                } catch(e) {}
+            }
             renderLibrary();
         });
     </script>
