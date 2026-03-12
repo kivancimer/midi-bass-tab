@@ -8,43 +8,79 @@
     <script src="https://unpkg.com/tone"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, sans-serif; background: #0d1117; color: #c9d1d9; padding: 20px; }
+        body {
+            font-family: -apple-system, sans-serif;
+            background: linear-gradient(135deg, #0d1117 0%, #161b22 50%, #0d1117 100%);
+            color: #c9d1d9;
+            min-height: 100vh;
+            padding: 20px;
+        }
         .container { max-width: 1400px; margin: 0 auto; }
-        h1 { text-align: center; color: #58a6ff; margin-bottom: 30px; font-size: 2.2em; text-shadow: 0 0 20px rgba(88,166,255,0.3); }
+        h1 { text-align: center; color: #58a6ff; margin-bottom: 30px; font-size: 2.2em; text-shadow: 0 0 20px rgba(88, 166, 255, 0.3); }
         
         .alert { background: rgba(240, 136, 62, 0.1); border: 1px solid #f0883e; color: #f0883e; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: none; }
         
-        .midi-library { background: rgba(22,27,34,0.8); border: 1px solid #30363d; border-radius: 16px; padding: 25px; margin-bottom: 25px; }
+        .midi-library { background: rgba(22, 27, 34, 0.8); border: 1px solid #30363d; border-radius: 16px; padding: 25px; margin-bottom: 25px; }
         .file-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
-        .file-card { background: #0d1117; border: 1px solid #30363d; padding: 18px; border-radius: 12px; cursor: pointer; transition: all 0.3s ease; }
-        .file-card:hover { border-color: #58a6ff; transform: translateY(-3px); box-shadow: 0 8px 25px rgba(88,166,255,0.15); }
+        .file-card { background: rgba(13, 17, 23, 0.6); border: 1px solid #30363d; padding: 18px; border-radius: 12px; cursor: pointer; transition: all 0.3s ease; }
+        .file-card:hover { border-color: #58a6ff; transform: translateY(-3px); box-shadow: 0 8px 25px rgba(88, 166, 255, 0.15); }
+        .file-card h3 { color: #c9d1d9; margin-bottom: 8px; font-size: 0.95em; }
+        .file-card span { color: #58a6ff; background: rgba(88, 166, 255, 0.1); padding: 3px 10px; border-radius: 20px; font-size: 0.8em; font-weight: 500; }
 
-        .results-section { display: none; }
-        .controls-panel { background: rgba(22,27,34,0.9); border: 1px solid #30363d; border-radius: 12px; padding: 25px; margin-bottom: 25px; }
+        .results-section { display: none; transition: 0.5s; }
+        .controls-panel { background: rgba(22, 27, 34, 0.9); border: 1px solid #30363d; border-radius: 12px; padding: 25px; margin-bottom: 25px; }
         .controls-row { display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
-        .control-btn { background: linear-gradient(135deg, #1f6feb, #58a6ff); border: none; padding: 12px 28px; color: white; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; }
+        .control-btn {
+            background: linear-gradient(135deg, #1f6feb, #58a6ff);
+            border: none;
+            padding: 12px 28px;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+        .control-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(88, 166, 255, 0.4); }
         .control-btn:disabled { background: #30363d; cursor: not-allowed; opacity: 0.5; }
         
         .progress-container { width: 100%; margin: 15px 0; }
         .progress-bar { width: 100%; height: 10px; background: #21262d; border-radius: 5px; cursor: pointer; position: relative; overflow: hidden; }
-        .progress-fill { height: 100%; background: linear-gradient(90deg, #1f6feb, #58a6ff); width: 0%; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #1f6feb, #58a6ff); width: 0%; transition: width 0.1s linear; }
 
-        .tablature-panel { background: rgba(22,27,34,0.9); border: 1px solid #30363d; border-radius: 12px; overflow: hidden; }
-        .tablature-scroll-container { overflow-x: scroll; position: relative; width: 100%; min-height: 300px; padding: 30px 0; }
+        .tablature-panel { background: rgba(22, 27, 34, 0.9); border: 1px solid #30363d; border-radius: 12px; overflow: hidden; }
+        .tablature-scroll-container { overflow-x: scroll; position: relative; width: 100%; min-height: 350px; padding: 30px 0; }
         .tablature-content { display: flex; position: relative; }
-        .string-labels { position: sticky; left: 0; z-index: 10; background: #0d1117; display: flex; flex-direction: column; min-width: 60px; padding-left: 10px; }
-        .string-label { color: #58a6ff; font-weight: bold; height: 50px; display: flex; align-items: center; }
-        .tab-lines-area { position: relative; min-width: 1000px; }
-        .tab-string-line { height: 50px; border-bottom: 1px solid #30363d; position: relative; display: flex; align-items: center; }
-        .tab-note { position: absolute; background: #f0883e; color: white; padding: 2px 8px; border-radius: 4px; font-weight: bold; transform: translateX(-50%); cursor: pointer; z-index: 5; }
-        .tab-note.active { background: #238636; box-shadow: 0 0 15px #238636; scale: 1.2; }
-        .position-marker { position: absolute; top: 0; bottom: 0; width: 2px; background: #58a6ff; z-index: 10; display: none; }
+        .string-labels { position: sticky; left: 0; z-index: 10; background: #0d1117; display: flex; flex-direction: column; min-width: 70px; padding: 0 20px; border-right: 1px solid #30363d; }
+        .string-label { color: #58a6ff; font-weight: bold; height: 50px; display: flex; align-items: center; justify-content: center; font-size: 1.2em; text-shadow: 0 0 10px rgba(88, 166, 255, 0.5); }
+        .tab-lines-area { position: relative; padding: 0 50px; }
+        .tab-string-line { height: 50px; border-bottom: 1px solid #484f58; position: relative; display: flex; align-items: center; width: 100%; }
+        .tab-note {
+            position: absolute;
+            background: linear-gradient(135deg, #f0883e, #f85149);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: bold;
+            transform: translateY(-50%) translateX(-50%);
+            top: 50%;
+            cursor: pointer;
+            z-index: 5;
+            box-shadow: 0 3px 10px rgba(248, 81, 73, 0.4);
+            transition: all 0.2s ease;
+        }
+        .tab-note.active { background: linear-gradient(135deg, #238636, #2ea043); box-shadow: 0 0 20px #238636; transform: translateY(-50%) translateX(-50%) scale(1.15); z-index: 7; }
+        .position-marker { position: absolute; top: 0; bottom: 0; width: 3px; background: linear-gradient(180deg, #58a6ff, #1f6feb); z-index: 8; display: none; box-shadow: 0 0 15px rgba(88, 166, 255, 0.8); }
 
-        .optimization-panel { background: rgba(13,17,23,0.8); border: 1px solid #30363d; padding: 20px; border-radius: 12px; margin-bottom: 25px; }
-        select { background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; padding: 8px; border-radius: 6px; }
+        .info-panel { background: rgba(13,17,23,0.6); padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; justify-content: space-around; }
+        .info-item { text-align: center; }
+        .info-label { font-size: 0.8em; color: #8b949e; margin-bottom: 4px; }
+        .info-val { font-weight: bold; color: #58a6ff; font-size: 1.1em; }
 
-        .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 1000; }
-        .spinner { border: 4px solid rgba(88,166,255,0.1); border-top: 4px solid #58a6ff; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        .optimization-panel { background: rgba(13, 17, 23, 0.8); border: 1px solid #30363d; padding: 20px; border-radius: 12px; margin-bottom: 25px; }
+        select { background: #0d1117; color: #c9d1d9; border: 1px solid #30363d; padding: 10px; border-radius: 8px; cursor: pointer; }
+
+        .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.85); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
+        .spinner { border: 4px solid rgba(88, 166, 255, 0.1); border-top: 4px solid #58a6ff; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-bottom: 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
@@ -53,27 +89,36 @@
         <h1>🎸 MIDI to 5-String Bass TAB</h1>
         
         <div id="protocolAlert" class="alert">
-            <strong>⚠️ Security Notice:</strong> Loading from <code>file://</code> is limited. Run <code>python -m http.server</code> for full access.
+            <strong>💡 Tip:</strong> Since you are using <code>file://</code>, click a song below and then <strong>select that same file</strong> from your computer to start playing.
         </div>
 
         <div id="midiLibrary" class="midi-library">
+            <h2 style="margin-bottom: 20px; color: #58a6ff;">📚 Your MIDI Library</h2>
             <div class="file-grid" id="fileGrid"></div>
         </div>
 
         <div id="results" class="results-section">
+            <div class="info-panel">
+                <div class="info-item"><div class="info-label">File</div><div id="infoFile" class="info-val">-</div></div>
+                <div class="info-item"><div class="info-label">Time</div><div id="infoTime" class="info-val">0:00 / 0:00</div></div>
+                <div class="info-item"><div class="info-label">Notes</div><div id="infoNotes" class="info-val">0</div></div>
+                <button class="control-btn" style="padding: 8px 15px;" onclick="location.reload()">🔙 Back to Library</button>
+            </div>
+
             <div class="optimization-panel">
                 <div class="controls-row">
-                    <label>Bass Type:</label>
+                    <label>Bass:</label>
                     <select id="bassType"><option value="5">5-String (B-E-A-D-G)</option><option value="4">4-String (E-A-D-G)</option></select>
                     <label>Mode:</label>
                     <select id="optimizationMode"><option value="smart">Smart Flow</option><option value="lowest">Lowest Frets</option></select>
-                    <button class="control-btn" onclick="applyOptimization()">🔄 Re-Optimize</button>
+                    <button class="control-btn" onclick="applyOptimization()">🔄 Update TAB</button>
                 </div>
             </div>
 
             <div class="controls-panel">
                 <div class="controls-row">
                     <button class="control-btn" id="playBtn">▶ Play</button>
+                    <button class="control-btn" id="pauseBtn" disabled>⏸ Pause</button>
                     <button class="control-btn" id="stopBtn">⏹ Stop</button>
                     <div style="margin-left: 20px;">
                         Track: <select id="trackSelect"></select>
@@ -97,7 +142,12 @@
         </div>
     </div>
 
-    <div id="loadingOverlay" class="loading-overlay"><div class="spinner"></div></div>
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="spinner"></div>
+        <div id="loadingText" style="color: #58a6ff; font-weight: 500;">Reading MIDI...</div>
+    </div>
+
+    <input type="file" id="localMidiPicker" accept=".mid,.midi" style="display: none;">
 
     <script>
         const INLINED_DATABASE = [
@@ -112,12 +162,14 @@
         const CONFIG = {
             tuning5: [{n:'G', m:43}, {n:'D', m:38}, {n:'A', m:33}, {n:'E', m:28}, {n:'B', m:23}],
             tuning4: [{n:'G', m:43}, {n:'D', m:38}, {n:'A', m:33}, {n:'E', m:28}],
-            pxPerSec: 100
+            pxPerSec: 150
         };
 
         let midiData = null;
         let currentTrack = null;
         let isPlaying = false;
+        let isPaused = false;
+        let playbackTime = 0;
         let startTime = 0;
         let animFrame = null;
         let audioCtx = null;
@@ -133,45 +185,66 @@
         }
 
         async function loadMidiFile(name) {
-            document.getElementById('loadingOverlay').style.display = 'flex';
-            try {
-                const res = await fetch(`midi/${name}`);
-                if (!res.ok) throw new Error("Fetch failed");
-                const buffer = await res.arrayBuffer();
-                const midi = new Midi(buffer);
-                midiData = midi;
-                
-                const trackSelect = document.getElementById('trackSelect');
-                trackSelect.innerHTML = midi.tracks.map((t, i) => `<option value="${i}">${t.name || 'Track '+i} (${t.notes.length} notes)</option>`).join('');
-                
-                document.getElementById('midiLibrary').style.display = 'none';
-                document.getElementById('results').style.display = 'block';
-                
-                selectTrack(midi.tracks.findIndex(t => t.notes.length > 0));
-            } catch (e) {
-                alert("Cannot load file directly. Please use a local server as instructed.");
-            } finally {
-                document.getElementById('loadingOverlay').style.display = 'none';
+            if (window.location.protocol === 'file:') {
+                // For file:// protocol, use file picker to bypass CORS
+                const picker = document.getElementById('localMidiPicker');
+                picker.onchange = async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    document.getElementById('loadingOverlay').style.display = 'flex';
+                    const buffer = await file.arrayBuffer();
+                    processMidiBuffer(buffer, file.name);
+                };
+                picker.click();
+            } else {
+                // Web server mode
+                document.getElementById('loadingOverlay').style.display = 'flex';
+                try {
+                    const res = await fetch(`midi/${name}`);
+                    if (!res.ok) throw new Error("Fetch failed");
+                    const buffer = await res.arrayBuffer();
+                    processMidiBuffer(buffer, name);
+                } catch (e) {
+                    alert("Error loading MIDI file.");
+                    document.getElementById('loadingOverlay').style.display = 'none';
+                }
             }
         }
 
+        function processMidiBuffer(buffer, name) {
+            midiData = new Midi(buffer);
+            document.getElementById('infoFile').innerText = name;
+            const trackSelect = document.getElementById('trackSelect');
+            trackSelect.innerHTML = midiData.tracks.map((t, i) => `<option value="${i}">${t.name || 'Track '+i} (${t.notes.length} notes)</option>`).join('');
+            
+            document.getElementById('midiLibrary').style.display = 'none';
+            document.getElementById('results').style.display = 'block';
+            
+            const initialIdx = midiData.tracks.findIndex(t => t.notes.length > 0);
+            document.getElementById('trackSelect').value = initialIdx;
+            selectTrack(initialIdx);
+            document.getElementById('loadingOverlay').style.display = 'none';
+        }
+
+        document.getElementById('trackSelect').onchange = (e) => selectTrack(e.target.value);
+
         function selectTrack(idx) {
+            stopPlayback();
             currentTrack = midiData.tracks[idx];
+            document.getElementById('infoNotes').innerText = currentTrack.notes.length;
             applyOptimization();
         }
 
         function applyOptimization() {
             const is5 = document.getElementById('bassType').value === '5';
             const tuning = is5 ? CONFIG.tuning5 : CONFIG.tuning4;
-            const mode = document.getElementById('optimizationMode').value;
             
-            const labels = document.getElementById('stringLabels');
-            labels.innerHTML = tuning.map(s => `<div class="string-label">${s.n}</div>`).join('');
+            document.getElementById('stringLabels').innerHTML = tuning.map(s => `<div class="string-label">${s.n}</div>`).join('');
             
             const area = document.getElementById('tabLinesArea');
             area.innerHTML = '<div id="positionMarker" class="position-marker"></div>';
             
-            const lines = tuning.map((s, i) => {
+            const lines = tuning.map(() => {
                 const line = document.createElement('div');
                 line.className = 'tab-string-line';
                 area.appendChild(line);
@@ -196,42 +269,80 @@
                     lines[bestPos.string].appendChild(noteEl);
                 }
             });
-            area.style.width = (midiData.duration * CONFIG.pxPerSec + 500) + 'px';
+            area.style.width = (midiData.duration * CONFIG.pxPerSec + 800) + 'px';
         }
 
-        // Playback logic
-        document.getElementById('playBtn').onclick = () => {
+        function formatTime(s) {
+            const m = Math.floor(s / 60);
+            const sec = Math.floor(s % 60);
+            return `${m}:${sec.toString().padStart(2, '0')}`;
+        }
+
+        function playPlayback() {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             if (audioCtx.state === 'suspended') audioCtx.resume();
+            
             isPlaying = true;
-            startTime = audioCtx.currentTime;
+            isPaused = false;
+            startTime = audioCtx.currentTime - playbackTime;
+            
+            document.getElementById('playBtn').disabled = true;
+            document.getElementById('pauseBtn').disabled = false;
             document.getElementById('positionMarker').style.display = 'block';
             animate();
-        };
+        }
 
-        document.getElementById('stopBtn').onclick = () => {
+        function pausePlayback() {
             isPlaying = false;
+            isPaused = true;
+            cancelAnimationFrame(animFrame);
+            document.getElementById('playBtn').disabled = false;
+            document.getElementById('playBtn').innerText = '▶ Resume';
+            document.getElementById('pauseBtn').disabled = true;
+        }
+
+        function stopPlayback() {
+            isPlaying = false;
+            isPaused = false;
+            playbackTime = 0;
             cancelAnimationFrame(animFrame);
             document.getElementById('progressFill').style.width = '0%';
+            document.getElementById('positionMarker').style.left = '0px';
             document.getElementById('positionMarker').style.display = 'none';
-        };
+            document.getElementById('playBtn').disabled = false;
+            document.getElementById('playBtn').innerText = '▶ Play';
+            document.getElementById('pauseBtn').disabled = true;
+            document.getElementById('infoTime').innerText = `0:00 / ${formatTime(midiData?.duration || 0)}`;
+        }
+
+        document.getElementById('playBtn').onclick = playPlayback;
+        document.getElementById('pauseBtn').onclick = pausePlayback;
+        document.getElementById('stopBtn').onclick = stopPlayback;
 
         function animate() {
             if (!isPlaying) return;
-            const now = audioCtx.currentTime - startTime;
-            const progress = (now / midiData.duration) * 100;
-            document.getElementById('progressFill').style.width = progress + '%';
+            playbackTime = audioCtx.currentTime - startTime;
             
-            const markerPos = now * CONFIG.pxPerSec;
+            const progress = (playbackTime / midiData.duration) * 100;
+            document.getElementById('progressFill').style.width = Math.min(progress, 100) + '%';
+            document.getElementById('infoTime').innerText = `${formatTime(playbackTime)} / ${formatTime(midiData.duration)}`;
+            
+            const markerPos = playbackTime * CONFIG.pxPerSec;
             document.getElementById('positionMarker').style.left = markerPos + 'px';
             
+            // Auto-scroll logic
+            const container = document.getElementById('tablatureContainer');
+            const targetScroll = markerPos - (container.clientWidth * 0.3);
+            if (targetScroll > container.scrollLeft) container.scrollLeft = targetScroll;
+
             document.querySelectorAll('.tab-note').forEach(n => {
-                if (Math.abs(parseFloat(n.dataset.time) - now) < 0.1) n.classList.add('active');
+                const t = parseFloat(n.dataset.time);
+                if (playbackTime >= t && playbackTime < t + 0.2) n.classList.add('active');
                 else n.classList.remove('active');
             });
 
-            if (now < midiData.duration) animFrame = requestAnimationFrame(animate);
-            else isPlaying = false;
+            if (playbackTime < midiData.duration) animFrame = requestAnimationFrame(animate);
+            else stopPlayback();
         }
 
         document.addEventListener('DOMContentLoaded', () => {
